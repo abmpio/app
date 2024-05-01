@@ -92,7 +92,7 @@ func RegisterOneStartupAction(p interface{}) IStartupActionInfo {
 // 注册一组startupAction
 func RegisterStartupAction(p ...interface{}) {
 	for _, eachP := range p {
-		RegisterStartupAction(eachP)
+		RegisterOneStartupAction(eachP)
 	}
 }
 
