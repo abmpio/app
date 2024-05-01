@@ -8,12 +8,11 @@ import (
 	"github.com/abmpio/abmp/pkg/factory"
 	"github.com/abmpio/abmp/pkg/log"
 	"github.com/abmpio/abmp/pkg/utils/reflector"
-	"github.com/abmpio/abmp/pkg/utils/slice"
 )
 
 const (
 	//执行在最后的优先维
-	lastPriority = 9999
+	LastPriority = 9999
 )
 
 // 用于post处理
@@ -35,7 +34,7 @@ func newStartupAction(factory factory.InstantiateFactory) *startupAction {
 // 封装一个IStartupAction对象信息
 type IStartupActionInfo interface {
 	//设置优先级，越小越高，优先级越高的执行在最前面
-	// SetPriority(priority int32)
+	SetPriority(priority int32)
 	SetName(name string) IStartupActionInfo
 	//设置最后执行，最后调用的执行在最后
 	SetLast() IStartupActionInfo
@@ -72,34 +71,7 @@ func (s *startupActionInfo) SetName(name string) IStartupActionInfo {
 }
 
 func (s *startupActionInfo) SetLast() IStartupActionInfo {
-	if len(s.name) <= 0 {
-		return s
-	}
-	//检测是否已经加入到了列表中，没有加入不进行任何处理
-	exist := slice.InWithFunc(_startupActions, func(info *startupActionInfo) bool {
-		return info.name == s.name
-	})
-	if !exist {
-		return s
-	}
-	defer func() {
-		//设置完成后，根据优先级进行排序
-		comparer := newStartupActionInfoComparer(_startupActions, true)
-		comparer.Sort()
-	}()
-	if len(_startupActions) <= 1 {
-		//第一个人设的，则直接使用最后的优先级值
-		s.priority = lastPriority
-		return s
-	}
-	//将最后的优先级加1,因为已经排序过，所以最后一个一定是最小优先级的
-	minPriority := _startupActions[len(_startupActions)-1].priority
-	if minPriority < lastPriority {
-		//最小一个的优先级值比预定义的最后的优先级值要小，则使用预定义的最后优先级值
-		s.priority = lastPriority
-		return s
-	}
-	s.priority = lastPriority + 1
+	s.SetPriority(LastPriority)
 	return s
 }
 
@@ -110,9 +82,9 @@ var (
 // 注册一个startupAction
 func RegisterOneStartupAction(p interface{}) IStartupActionInfo {
 	startupActionInfo := newStartupActionInfo(p)
+	_startupActions = append(_startupActions, startupActionInfo)
 	//注册后，根据优先级进行排序
 	startupActionInfo.SetPriority(int32(len(_startupActions)))
-	_startupActions = append(_startupActions, startupActionInfo)
 
 	return startupActionInfo
 }
@@ -120,13 +92,8 @@ func RegisterOneStartupAction(p interface{}) IStartupActionInfo {
 // 注册一组startupAction
 func RegisterStartupAction(p ...interface{}) {
 	for _, eachP := range p {
-		startupActionInfo := newStartupActionInfo(eachP)
-		startupActionInfo.priority = int32(len(_startupActions))
-		_startupActions = append(_startupActions, startupActionInfo)
+		RegisterStartupAction(eachP)
 	}
-	//注册后，根据优先维进行排序
-	comparer := newStartupActionInfoComparer(_startupActions, true)
-	comparer.Sort()
 }
 
 func (p *startupAction) Init() {
