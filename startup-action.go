@@ -34,7 +34,7 @@ func newStartupAction(factory factory.InstantiateFactory) *startupAction {
 // 封装一个IStartupAction对象信息
 type IStartupActionInfo interface {
 	//设置优先级，越小越高，优先级越高的执行在最前面
-	SetPriority(priority int32)
+	// SetPriority(priority int32)
 	SetName(name string) IStartupActionInfo
 	//设置最后执行，最后调用的执行在最后
 	SetLast() IStartupActionInfo
@@ -57,12 +57,11 @@ func newStartupActionInfo(p interface{}) *startupActionInfo {
 	}
 }
 
-func (s *startupActionInfo) SetPriority(priority int32) {
+func (s *startupActionInfo) setPriority(priority int32) {
 	s.priority = priority
 	//设置完成后，根据优先级进行排序
 	comparer := newStartupActionInfoComparer(_startupActions, true)
 	comparer.Sort()
-
 }
 
 func (s *startupActionInfo) SetName(name string) IStartupActionInfo {
@@ -71,7 +70,17 @@ func (s *startupActionInfo) SetName(name string) IStartupActionInfo {
 }
 
 func (s *startupActionInfo) SetLast() IStartupActionInfo {
-	s.SetPriority(LastPriority)
+	var lastPriorityItem *startupActionInfo
+	for _, eachItem := range _startupActions {
+		if eachItem.priority >= LastPriority {
+			lastPriorityItem = eachItem
+		}
+	}
+	if lastPriorityItem == nil {
+		s.setPriority(LastPriority)
+	} else {
+		s.setPriority(lastPriorityItem.priority + 1)
+	}
 	return s
 }
 
@@ -79,12 +88,28 @@ var (
 	_startupActions []*startupActionInfo
 )
 
+func lastPriorityIncrement() int32 {
+	if len(_startupActions) <= 0 {
+		return 1
+	}
+	var lastPriorityItem *startupActionInfo
+	for _, eachItem := range _startupActions {
+		if eachItem.priority < LastPriority {
+			lastPriorityItem = eachItem
+		}
+	}
+	if lastPriorityItem != nil {
+		return lastPriorityItem.priority + 1
+	}
+	return 1
+}
+
 // 注册一个startupAction
 func RegisterOneStartupAction(p interface{}) IStartupActionInfo {
 	startupActionInfo := newStartupActionInfo(p)
 	_startupActions = append(_startupActions, startupActionInfo)
-	//注册后，根据优先级进行排序
-	startupActionInfo.SetPriority(int32(len(_startupActions)))
+	//注册后，自动设置优先级
+	startupActionInfo.setPriority(lastPriorityIncrement())
 
 	return startupActionInfo
 }
