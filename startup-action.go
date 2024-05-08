@@ -92,16 +92,16 @@ func lastPriorityIncrement() int32 {
 	if len(_startupActions) <= 0 {
 		return 1
 	}
-	var lastPriorityItem *startupActionInfo
+	lastPriority := int32(0)
 	for _, eachItem := range _startupActions {
-		if eachItem.priority < LastPriority {
-			lastPriorityItem = eachItem
+		if eachItem.priority >= LastPriority {
+			continue
+		}
+		if eachItem.priority > lastPriority {
+			lastPriority = eachItem.priority
 		}
 	}
-	if lastPriorityItem != nil {
-		return lastPriorityItem.priority + 1
-	}
-	return 1
+	return lastPriority + 1
 }
 
 // 注册一个startupAction
