@@ -33,7 +33,7 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 	if len(strings.TrimSpace(abmpConsulPath)) > 0 {
 		consulPathList = append(consulPathList, abmpConsulPath)
 	} else {
-		consulPathList = append(consulPathList, "abmp.slzn")
+		consulPathList = append(consulPathList, "abmp")
 	}
 	envAppNameValue := host.GetHostEnvironment().GetEnvString(host.ENV_AppName)
 	if len(envAppNameValue) > 0 {
@@ -47,8 +47,6 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 		panic(err)
 	}
 	configurationx.GetInstance().UnmarshFromKey("logger", log.DefaultLogConfiguration)
-
-	// configurationx.UseConfiguration(configurationx.GetInstance().GetViper())
 
 	v := configurationx.GetInstance().GetViper()
 	for _, eachKey := range v.AllKeys() {
