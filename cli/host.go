@@ -4,17 +4,20 @@ import (
 	"strings"
 
 	"github.com/abmpio/abmp/pkg/log"
-	"github.com/abmpio/app"
 	"github.com/abmpio/app/host"
 	"github.com/abmpio/configurationx"
 	"github.com/abmpio/configurationx/consulv"
 )
 
 type Host struct {
-	app app.Application
+	app CliApplication
 }
 
 type Option func(*Host)
+
+var (
+	_host *Host
+)
 
 // 安装host环境
 func SetupHostEnvironment(companyName string, appName string, version string, opts ...Option) *Host {
@@ -64,15 +67,29 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 }
 
 func (h *Host) Build(cmd ...interface{}) *Host {
-	app := NewCliApplication(cmd...).Build()
+	app := newCliApplication(cmd...)
+	app.Build()
+
 	app.SystemConfig().App.
 		WithName(host.GetHostEnvironment().GetEnvString(host.ENV_AppName)).
 		WithVersion(host.GetHostEnvironment().GetEnvString(host.ENV_AppVersion))
 	h.app = app
+
+	_host = h
 	return h
 }
 
 func (h *Host) Run() *Host {
 	h.app.Run()
 	return h
+}
+
+// Get Application
+func (h *Host) Application() CliApplication {
+	return h.app
+}
+
+// get Host instance
+func GetHost() *Host {
+	return _host
 }

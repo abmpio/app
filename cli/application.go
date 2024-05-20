@@ -19,7 +19,6 @@ type ServiceConfigurator func(CliApplication)
 var (
 	_registedConfiguratorList []ServiceConfigurator
 	_syncOnce                 sync.Once
-	Application               CliApplication
 )
 
 // web应用
@@ -48,18 +47,13 @@ const (
 )
 
 // new一个cli应用
-func NewCliApplication(cmd ...interface{}) CliApplication {
+func newCliApplication(cmd ...interface{}) CliApplication {
 	newApp := &defaultCliApplication{}
 	newApp.initialize(cmd...)
 	if app.HostApplication != nil {
 		newApp.serviceProvider = app.HostApplication.GetServiceProvider()
 	}
 	return newApp
-}
-
-// 设置Application属性值
-func SetCliApplication(cliApp CliApplication) {
-	Application = cliApp
 }
 
 func (a *defaultCliApplication) GetServiceProvider() app.IServiceProvider {
