@@ -1,20 +1,40 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
+	"sync"
 
+	"github.com/abmpio/abmp/pkg/log"
 	"github.com/abmpio/app"
 )
 
-type Application interface {
+// 配置服务
+type ServiceConfigurator func(CliApplication)
+
+var (
+	_registedConfiguratorList []ServiceConfigurator
+	_syncOnce                 sync.Once
+	Application               CliApplication
+)
+
+// web应用
+type CliApplication interface {
 	app.Application
+
+	GetServiceProvider() app.IServiceProvider
+	ConfigureService()
 }
 
-type application struct {
+type defaultCliApplication struct {
 	app.BaseApplication
 	root Command
+
+	serviceProvider app.IServiceProvider
 }
 
 type CommandNameValue struct {
@@ -27,13 +47,26 @@ const (
 	RootCommandName = "cli.rootCommand"
 )
 
-func NewApplication(cmd ...interface{}) Application {
-	a := new(application)
-	a.initialize(cmd...)
-	return a
+// new一个cli应用
+func NewCliApplication(cmd ...interface{}) CliApplication {
+	newApp := &defaultCliApplication{}
+	newApp.initialize(cmd...)
+	if app.HostApplication != nil {
+		newApp.serviceProvider = app.HostApplication.GetServiceProvider()
+	}
+	return newApp
 }
 
-func (a *application) initialize(cmd ...interface{}) (err error) {
+// 设置Application属性值
+func SetCliApplication(cliApp CliApplication) {
+	Application = cliApp
+}
+
+func (a *defaultCliApplication) GetServiceProvider() app.IServiceProvider {
+	return a.serviceProvider
+}
+
+func (a *defaultCliApplication) initialize(cmd ...interface{}) (err error) {
 	if len(cmd) > 0 {
 		app.Register(RootCommandName, cmd[0])
 	}
@@ -42,7 +75,7 @@ func (a *application) initialize(cmd ...interface{}) (err error) {
 }
 
 // 构建应用运行所需的环境
-func (a *application) Build() app.Application {
+func (a *defaultCliApplication) Build() app.Application {
 	//先调用基类的构建函数
 	a.BaseApplication.Build()
 
@@ -70,24 +103,51 @@ func (a *application) Build() app.Application {
 	return a
 }
 
+func (a *defaultCliApplication) ConfigureService() {
+	_syncOnce.Do(func() {
+		for _, eachOption := range _registedConfiguratorList {
+			configuratorName := getServiceConfiguratorTypeName(eachOption)
+			if !app.HostApplication.SystemConfig().App.IsRunInCli {
+				log.Logger.Info(fmt.Sprintf("begin run ServiceConfigurator,%s", configuratorName))
+			}
+			eachOption(a)
+			if !app.HostApplication.SystemConfig().App.IsRunInCli {
+				log.Logger.Info(fmt.Sprintf("finish run ServiceConfigurator,%s", configuratorName))
+			}
+		}
+	})
+}
+
+func getServiceConfiguratorTypeName(configuratorFunc ServiceConfigurator) string {
+	if configuratorFunc == nil {
+		return ""
+	}
+	return runtime.FuncForPC(reflect.ValueOf(configuratorFunc).Pointer()).Name()
+}
+
+// 配置服务
+func ConfigureService(opts ...ServiceConfigurator) {
+	_registedConfiguratorList = append(_registedConfiguratorList, opts...)
+}
+
 // 设置应用属性名
-func (a *application) SetProperty(name string, value ...interface{}) app.Application {
+func (a *defaultCliApplication) SetProperty(name string, value ...interface{}) app.Application {
 	a.BaseApplication.SetProperty(name, value...)
 	return a
 }
 
-func (a *application) SetAddCommandLineProperties(enabled bool) app.Application {
+func (a *defaultCliApplication) SetAddCommandLineProperties(enabled bool) app.Application {
 	a.BaseApplication.SetAddCommandLineProperties(enabled)
 	return a
 }
 
 // 初始化应用
-func (a *application) Initialize() error {
+func (a *defaultCliApplication) Initialize() error {
 	return a.BaseApplication.Initialize()
 }
 
 // 运行应用
-func (a *application) Run() {
+func (a *defaultCliApplication) Run() {
 	if a.root != nil {
 		a.root.Exec()
 	}

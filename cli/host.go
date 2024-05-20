@@ -64,7 +64,7 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 }
 
 func (h *Host) Build(cmd ...interface{}) *Host {
-	app := NewApplication(cmd...).Build()
+	app := NewCliApplication(cmd...).Build()
 	app.SystemConfig().App.
 		WithName(host.GetHostEnvironment().GetEnvString(host.ENV_AppName)).
 		WithVersion(host.GetHostEnvironment().GetEnvString(host.ENV_AppVersion))
