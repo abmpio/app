@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/abmpio/abmp/pkg/log"
 	"github.com/abmpio/app"
@@ -27,13 +28,18 @@ type CliApplication interface {
 
 	GetServiceProvider() app.IServiceProvider
 	ConfigureService()
+	Shutdown()
+	WaitForShutdown()
 }
 
 type defaultCliApplication struct {
 	app.BaseApplication
 	root Command
 
-	serviceProvider app.IServiceProvider
+	mu               sync.RWMutex
+	shutdown         atomic.Bool
+	shutdownComplete chan struct{}
+	serviceProvider  app.IServiceProvider
 }
 
 type CommandNameValue struct {
@@ -48,7 +54,9 @@ const (
 
 // new一个cli应用
 func newCliApplication(cmd ...interface{}) CliApplication {
-	newApp := &defaultCliApplication{}
+	newApp := &defaultCliApplication{
+		shutdownComplete: make(chan struct{}),
+	}
 	newApp.initialize(cmd...)
 	if app.HostApplication != nil {
 		newApp.serviceProvider = app.HostApplication.GetServiceProvider()
@@ -143,7 +151,41 @@ func (a *defaultCliApplication) Initialize() error {
 // 运行应用
 func (a *defaultCliApplication) Run() {
 	if a.root != nil {
+		// Start signal handler
+		a.handleSignals()
 		a.root.Exec()
 	}
 	a.Shutdown()
+}
+
+// WaitForShutdown will block until the server has been fully shutdown.
+func (a *defaultCliApplication) WaitForShutdown() {
+	<-a.shutdownComplete
+}
+
+func (a *defaultCliApplication) Shutdown() {
+	if a == nil {
+		return
+	}
+
+	// Prevent issues with multiple calls.
+	if a.isShuttingDown() {
+		return
+	}
+
+	a.mu.Lock()
+	if !a.SystemConfig().App.IsRunInCli {
+		log.Logger.Debug("Initiating shutdown...")
+	}
+	a.shutdown.Store(true)
+
+	a.BaseApplication.Shutdown()
+
+	a.mu.Unlock()
+	// Notify that the shutdown is complete
+	close(a.shutdownComplete)
+}
+
+func (a *defaultCliApplication) isShuttingDown() bool {
+	return a.shutdown.Load()
 }
