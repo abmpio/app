@@ -34,12 +34,8 @@ func (s *defaultCliApplication) handleSignals() {
 	go func() {
 		for sig := range c {
 			log.Logger.Debug(fmt.Sprintf("Trapped %q signal", sig))
-			switch sig {
-			case syscall.SIGINT:
-			case syscall.SIGTERM:
-				s.Shutdown()
-				os.Exit(0)
-			}
+			s.Shutdown()
+			os.Exit(0)
 		}
 	}()
 }
