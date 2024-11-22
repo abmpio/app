@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !windows && !wasm
-// +build !windows,!wasm
+//go:build windows
+// +build windows
 
 package cli
 
@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
 
 	"github.com/abmpio/abmp/pkg/log"
 )
@@ -29,20 +28,13 @@ import (
 func (s *defaultCliApplication) handleSignals() {
 	c := make(chan os.Signal, 1)
 
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt)
 
 	go func() {
-		for {
-			select {
-			case sig := <-c:
-				log.Logger.Debug(fmt.Sprintf("Trapped %q signal", sig))
-				switch sig {
-				case syscall.SIGINT:
-				case syscall.SIGTERM:
-					s.Shutdown()
-					os.Exit(0)
-				}
-			}
+		for sig := range c {
+			log.Logger.Debug(fmt.Sprintf("Trapped %q signal", sig))
+			s.Shutdown()
+			os.Exit(0)
 		}
 	}()
 }
