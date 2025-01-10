@@ -22,10 +22,6 @@ var (
 	postProcessors []interface{}
 )
 
-func init() {
-
-}
-
 // RegisterPostProcessor register post processor
 func RegisterPostProcessor(p ...interface{}) {
 	postProcessors = append(postProcessors, p...)
