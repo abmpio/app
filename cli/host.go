@@ -7,6 +7,7 @@ import (
 	"github.com/abmpio/app/host"
 	"github.com/abmpio/configurationx"
 	"github.com/abmpio/configurationx/consulv"
+	"github.com/spf13/viper"
 )
 
 type Host struct {
@@ -31,16 +32,19 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 		configurationx.ReadFromDefaultPath(),
 		configurationx.ReadFromEtcFolder(appName))
 
+	// setup consulPath environment value from default config path
+	setupConsulPathHostEnvironment()
+
 	consulPathList := []string{}
 	abmpConsulPath := host.GetHostEnvironment().GetEnvString(host.ENV_ConsulPath)
 	if len(strings.TrimSpace(abmpConsulPath)) > 0 {
-		consulPathList = append(consulPathList, abmpConsulPath)
+		consulPathList = append(consulPathList, c.Consul.AppendSuffixPathForKVPath(abmpConsulPath))
 	} else {
-		consulPathList = append(consulPathList, "abmp")
+		consulPathList = append(consulPathList, c.Consul.AppendSuffixPathForKVPath("abmpio"))
 	}
 	envAppNameValue := host.GetHostEnvironment().GetEnvString(host.ENV_AppName)
 	if len(envAppNameValue) > 0 {
-		consulPathList = append(consulPathList, envAppNameValue)
+		consulPathList = append(consulPathList, c.Consul.AppendSuffixPathForKVPath(envAppNameValue))
 	}
 
 	_, err := configurationx.Use(consulv.ReadFromConsul(*c.Consul, consulPathList),
@@ -64,6 +68,17 @@ func SetupHostEnvironment(companyName string, appName string, version string, op
 		eachOpt(newHost)
 	}
 	return newHost
+}
+
+func setupConsulPathHostEnvironment() {
+	v := viper.New()
+	configurationx.SetupViperFromDefaultPath(v)
+	keyValue := v.GetString(host.ENV_ConsulPath)
+	if len(keyValue) <= 0 {
+		return
+	}
+	// set environment key value
+	host.GetHostEnvironment().SetEnv(host.ENV_ConsulPath, keyValue)
 }
 
 func (h *Host) Build(cmd ...interface{}) *Host {
